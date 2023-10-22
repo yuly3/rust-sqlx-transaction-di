@@ -6,14 +6,14 @@ use sqlx::{query_scalar, Pool, Postgres, Transaction};
 #[mockall::automock]
 #[async_trait]
 pub(crate) trait TransactionRepository {
-    async fn begin<'a>(&self) -> Result<Option<Transaction<'a, Postgres>>, sqlx::Error>;
+    async fn begin(&self) -> Result<Option<Transaction<'static, Postgres>>, sqlx::Error>;
 }
 
 pub(crate) struct TransactionRepositoryImpl(pub(crate) Arc<Pool<Postgres>>);
 
 #[async_trait]
 impl TransactionRepository for TransactionRepositoryImpl {
-    async fn begin<'a>(&self) -> Result<Option<Transaction<'a, Postgres>>, sqlx::Error> {
+    async fn begin(&self) -> Result<Option<Transaction<'static, Postgres>>, sqlx::Error> {
         Ok(Some(self.0.begin().await?))
     }
 }
