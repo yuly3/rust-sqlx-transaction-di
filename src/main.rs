@@ -4,7 +4,7 @@ use sqlx::postgres::PgPoolOptions;
 
 use crate::repositories::SelectOneRepositoryImpl;
 use crate::repositories::TransactionRepositoryImpl;
-use crate::usecases::{SelectOneExt, SelectOneUseCase, TransactionExt};
+use crate::usecases::{SelectOneExt, TransactionExt, UseCaseOnTransaction};
 
 mod repositories;
 mod usecases;
@@ -49,7 +49,7 @@ async fn main() {
     let select_one_repositories =
         SelectOneRepositories::new(transaction_repository, select_one_repository);
 
-    let select_one_usecase = SelectOneUseCase::new(select_one_repositories);
+    let select_one_usecase = UseCaseOnTransaction::new(select_one_repositories);
     let result = select_one_usecase.select_one().await.unwrap();
     println!("{}", result);
 }
@@ -57,7 +57,7 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use crate::repositories::{MockSelectOneRepository, MockTransactionRepository};
-    use crate::usecases::{SelectOneExt, SelectOneUseCase, TransactionExt};
+    use crate::usecases::{SelectOneExt, TransactionExt, UseCaseOnTransaction};
 
     struct SelectOneRepositories {
         transaction_repository: MockTransactionRepository,
@@ -91,7 +91,7 @@ mod tests {
             select_one_repository,
         };
 
-        let result = SelectOneUseCase::new(select_one_repositories)
+        let result = UseCaseOnTransaction::new(select_one_repositories)
             .select_one()
             .await;
         assert_eq!(result.unwrap(), 1);

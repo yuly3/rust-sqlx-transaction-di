@@ -7,20 +7,22 @@ pub(crate) trait TransactionExt {
     fn transaction_repository(&self) -> &Self::TransactionRepo;
 }
 
+pub(crate) struct UseCaseOnTransaction<R: TransactionExt> {
+    repositories: R,
+}
+
+impl<R: TransactionExt> UseCaseOnTransaction<R> {
+    pub fn new(repositories: R) -> Self {
+        Self { repositories }
+    }
+}
+
 pub(crate) trait SelectOneExt: TransactionExt {
     type SelectOneRepo: SelectOneRepository;
     fn select_one_repository(&self) -> &Self::SelectOneRepo;
 }
 
-pub(crate) struct SelectOneUseCase<S: SelectOneExt> {
-    repositories: S,
-}
-
-impl<S: SelectOneExt> SelectOneUseCase<S> {
-    pub fn new(repositories: S) -> Self {
-        Self { repositories }
-    }
-
+impl<R: SelectOneExt> UseCaseOnTransaction<R> {
     async fn inner(
         &self,
         tx: Option<&mut Transaction<'static, Postgres>>,
