@@ -35,10 +35,10 @@ impl<R: SelectOneExt> UseCaseOnTransaction<R> {
             Some(mut tx) => {
                 let result = {
                     let tx = Some(&mut tx);
-                    self.inner(tx).await
+                    self.inner(tx).await?
                 };
                 tx.commit().await?;
-                result
+                Ok(result)
             }
             None => self.inner(None).await,
         }
