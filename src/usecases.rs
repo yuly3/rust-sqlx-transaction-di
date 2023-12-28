@@ -1,6 +1,6 @@
 use sqlx::{Postgres, Transaction};
 
-use crate::repositories::{SelectOneRepository, TransactionRepository};
+use crate::repositories::{SelectOneRepository, TransactionRepository, WithTransaction};
 
 pub(crate) trait TransactionExt {
     type TransactionRepo: TransactionRepository;
@@ -25,22 +25,22 @@ pub(crate) trait SelectOneExt: TransactionExt {
 impl<R: SelectOneExt> UseCaseOnTransaction<R> {
     async fn inner(
         &self,
-        tx: Option<&mut Transaction<'static, Postgres>>,
-    ) -> Result<i64, sqlx::Error> {
-        self.repositories.select_one_repository().select(tx).await
+        tx: Option<Transaction<'static, Postgres>>,
+    ) -> WithTransaction<Result<i64, sqlx::Error>> {
+        let select_one_repository = self.repositories.select_one_repository();
+        let result1 = select_one_repository.select(tx).await;
+        let result2 = select_one_repository.select(result1.tx).await;
+        result2
     }
 
     pub async fn select_one(&self) -> Result<i64, sqlx::Error> {
         match self.repositories.transaction_repository().begin().await? {
-            Some(mut tx) => {
-                let result = {
-                    let tx = Some(&mut tx);
-                    self.inner(tx).await?
-                };
-                tx.commit().await?;
-                Ok(result)
+            Some(tx) => {
+                let result = self.inner(Some(tx)).await;
+                result.tx.unwrap().commit().await?;
+                result.value
             }
-            None => self.inner(None).await,
+            None => self.inner(None).await.value,
         }
     }
 }

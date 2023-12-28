@@ -18,13 +18,24 @@ impl TransactionRepository for TransactionRepositoryImpl {
     }
 }
 
+pub struct WithTransaction<T> {
+    pub value: T,
+    pub tx: Option<Transaction<'static, Postgres>>,
+}
+
+impl<T> WithTransaction<T> {
+    pub fn new(value: T, tx: Option<Transaction<'static, Postgres>>) -> Self {
+        WithTransaction { value, tx }
+    }
+}
+
 #[mockall::automock]
 #[async_trait]
 pub(crate) trait SelectOneRepository {
     async fn select<'a>(
         &self,
-        tx: Option<&'a mut Transaction<'static, Postgres>>,
-    ) -> Result<i64, sqlx::Error>;
+        tx: Option<Transaction<'static, Postgres>>,
+    ) -> WithTransaction<Result<i64, sqlx::Error>>;
 }
 
 pub(crate) struct SelectOneRepositoryImpl();
@@ -33,11 +44,11 @@ pub(crate) struct SelectOneRepositoryImpl();
 impl SelectOneRepository for SelectOneRepositoryImpl {
     async fn select<'a>(
         &self,
-        tx: Option<&'a mut Transaction<'static, Postgres>>,
-    ) -> Result<i64, sqlx::Error> {
+        tx: Option<Transaction<'static, Postgres>>,
+    ) -> WithTransaction<Result<i64, sqlx::Error>> {
         let stmt = "select 1";
-        query_scalar::<_, i64>(stmt)
-            .fetch_one(tx.unwrap().as_mut())
-            .await
+        let mut tx = tx.unwrap();
+        let result = query_scalar::<_, i64>(stmt).fetch_one(tx.as_mut()).await;
+        WithTransaction::new(result, Some(tx))
     }
 }

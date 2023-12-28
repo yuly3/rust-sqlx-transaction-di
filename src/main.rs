@@ -56,7 +56,9 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::repositories::{MockSelectOneRepository, MockTransactionRepository};
+    use crate::repositories::{
+        MockSelectOneRepository, MockTransactionRepository, WithTransaction,
+    };
     use crate::usecases::{SelectOneExt, TransactionExt, UseCaseOnTransaction};
 
     struct SelectOneRepositories {
@@ -81,7 +83,9 @@ mod tests {
     #[tokio::test]
     async fn test() {
         let mut select_one_repository = MockSelectOneRepository::new();
-        select_one_repository.expect_select().returning(|_tx| Ok(1));
+        select_one_repository
+            .expect_select()
+            .returning(|_tx| WithTransaction::new(Ok(1), None));
 
         let mut transaction_repository = MockTransactionRepository::new();
         transaction_repository.expect_begin().returning(|| Ok(None));
