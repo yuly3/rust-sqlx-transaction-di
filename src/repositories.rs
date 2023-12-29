@@ -18,14 +18,17 @@ impl TransactionRepository for TransactionRepositoryImpl {
     }
 }
 
-pub struct WithTransaction<T> {
+pub struct OnTransaction<T> {
     pub value: T,
     pub tx: Option<Transaction<'static, Postgres>>,
 }
 
-impl<T> WithTransaction<T> {
+impl<T> OnTransaction<T> {
     pub fn new(value: T, tx: Option<Transaction<'static, Postgres>>) -> Self {
-        WithTransaction { value, tx }
+        OnTransaction { value, tx }
+    }
+    pub async fn commit(self) -> Result<T, sqlx::Error> {
+        self.tx.unwrap().commit().await.map(|_| self.value)
     }
 }
 
@@ -35,7 +38,7 @@ pub(crate) trait SelectOneRepository {
     async fn select<'a>(
         &self,
         tx: Option<Transaction<'static, Postgres>>,
-    ) -> WithTransaction<Result<i64, sqlx::Error>>;
+    ) -> OnTransaction<Result<i64, sqlx::Error>>;
 }
 
 pub(crate) struct SelectOneRepositoryImpl();
@@ -45,10 +48,10 @@ impl SelectOneRepository for SelectOneRepositoryImpl {
     async fn select<'a>(
         &self,
         tx: Option<Transaction<'static, Postgres>>,
-    ) -> WithTransaction<Result<i64, sqlx::Error>> {
+    ) -> OnTransaction<Result<i64, sqlx::Error>> {
         let stmt = "select 1";
         let mut tx = tx.unwrap();
         let result = query_scalar::<_, i64>(stmt).fetch_one(tx.as_mut()).await;
-        WithTransaction::new(result, Some(tx))
+        OnTransaction::new(result, Some(tx))
     }
 }
