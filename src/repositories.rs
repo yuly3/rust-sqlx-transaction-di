@@ -18,37 +18,53 @@ impl TransactionRepository for TransactionRepositoryImpl {
     }
 }
 
-pub struct OnTransaction<T> {
-    pub value: T,
+pub struct OnTransaction<T, E: std::error::Error> {
+    pub value: Result<T, E>,
     pub tx: Option<Transaction<'static, Postgres>>,
 }
 
-impl<T> OnTransaction<T> {
-    pub fn new(value: T, tx: Option<Transaction<'static, Postgres>>) -> Self {
+#[derive(thiserror::Error, Debug)]
+pub enum CommitErrorOr<E: std::error::Error> {
+    CommitError(String),
+    OtherError(E),
+}
+
+impl<T, E: std::error::Error> OnTransaction<T, E> {
+    pub fn new(value: Result<T, E>, tx: Option<Transaction<'static, Postgres>>) -> Self {
         OnTransaction { value, tx }
     }
-    pub async fn commit(self) -> Result<T, sqlx::Error> {
-        self.tx.unwrap().commit().await.map(|_| self.value)
+    pub async fn and_then_commit(self) -> Result<T, CommitErrorOr<E>> {
+        match self.value {
+            Ok(value) => {
+                if let Some(tx) = self.tx {
+                    tx.commit()
+                        .await
+                        .map_err(|e| CommitErrorOr::CommitError(e.to_string()))?;
+                }
+                Ok(value)
+            }
+            Err(e) => Err(CommitErrorOr::OtherError(e)),
+        }
     }
 }
 
 #[mockall::automock]
 #[async_trait]
 pub(crate) trait SelectOneRepository {
-    async fn select<'a>(
+    async fn select(
         &self,
         tx: Option<Transaction<'static, Postgres>>,
-    ) -> OnTransaction<Result<i64, sqlx::Error>>;
+    ) -> OnTransaction<i64, sqlx::Error>;
 }
 
 pub(crate) struct SelectOneRepositoryImpl();
 
 #[async_trait]
 impl SelectOneRepository for SelectOneRepositoryImpl {
-    async fn select<'a>(
+    async fn select(
         &self,
         tx: Option<Transaction<'static, Postgres>>,
-    ) -> OnTransaction<Result<i64, sqlx::Error>> {
+    ) -> OnTransaction<i64, sqlx::Error> {
         let stmt = "select 1";
         let mut tx = tx.unwrap();
         let result = query_scalar::<_, i64>(stmt).fetch_one(tx.as_mut()).await;

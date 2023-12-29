@@ -10,3 +10,4 @@ async-trait = "0"
 mockall = "0"
 sqlx = { version = "0", features = ["postgres", "runtime-tokio", "sqlx-postgres"] }
 tokio = { version = "1", features = ["tokio-macros", "rt-multi-thread", "macros"] }
+thiserror = { version = "1" }
